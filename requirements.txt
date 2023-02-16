@@ -1,0 +1,4 @@
+git+https://github.com/echalmers/hippocluster.git
+matplotlib
+numpy
+networkx
