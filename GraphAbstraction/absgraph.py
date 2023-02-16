@@ -5,6 +5,7 @@ import numpy as np
 import networkx as nx
 import random
 
+LENGTH_RAND = 0.25
 
 class AbstractedGraph:
 
@@ -73,7 +74,7 @@ class AbstractedGraph:
         self.n_panels = 2
         self.graphs = []
         self.assignmentslist = []
-        self.nclusters = 16
+        self.nclusters = int(graph.G.order()/10)
         self.graphs.insert(0,graph)
         
 
@@ -84,18 +85,22 @@ class AbstractedGraph:
                 drop_threshold=0.001
             )
         
-            for step in range(1000):  # todo: it should be sufficient to show hippocluster 10*N walks
+            for step in range(10*graph.G.order()):
 
                 # get a batch of random walks
 
                 walks = [
-                    set(graph.unweighted_random_walk(length=random.randint(int(self.nclusters/2) + 2, self.nclusters+2)))
+                    set(graph.unweighted_random_walk(
+                        length=random.randint(
+                            math.ceil(graph.G.order() / self.nclusters * (1-LENGTH_RAND)),
+                            math.ceil(graph.G.order() / self.nclusters * (1+LENGTH_RAND)))))
+
                     for _ in range(self.nclusters*5 if step == 0 else self.nclusters)
                 ]
 
                 # update the clustering
                 hippocluster.update(walks)
-                assignments = hippocluster.get_assignments(graph)  # todo: it will save time to just do this once after the loop
+            assignments = hippocluster.get_assignments(graph)
                 
             print("inserting assignment at %d" % count)
             self.assignmentslist.insert(count,assignments)
