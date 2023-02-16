@@ -2,8 +2,8 @@ from hippocluster.graphs.abstract import RandomWalkGraph
 from absgraph import AbstractedGraph
 import pickle
 
-# filename = "T_tograph_empty_gridworld.pkl"
-filename = "T_tograph_walls_gridworld.pkl"
+# filename = "../sample_data/T_tograph_empty_gridworld.pkl"
+filename = "../sample_data/T_tograph_walls_gridworld.pkl"
 
 with open(filename, "rb") as f:
     G = pickle.load(f)
