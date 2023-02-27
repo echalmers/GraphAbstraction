@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 import random
+import math
 
 LENGTH_RAND = 0.25
 
@@ -26,7 +27,7 @@ class AbstractedGraph:
             testcolors = {}
 
             for node in self.graphs[i]:
-                for parent in self.get_lower_abstraction_nodes(node, i - 1, 0):
+                for parent in self.get_lower_abstraction_nodes(node, i, 0):
                     testcolors[parent] = self.colors[node][::-1]
 
             plt.subplot(2, num_iterations, i + num_iterations)
