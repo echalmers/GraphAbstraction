@@ -83,26 +83,14 @@ class AbstractedGraph:
             # instantiate Hippocluster object
             hippocluster = Hippocluster(
                 n_clusters=self.nclusters,
-                drop_threshold=0.001
+                drop_threshold=0.001,
+                n_walks=10*graph.G.order(),
+                batch_size=self.nclusters*5,
+                min_len=math.ceil(graph.G.order() / self.nclusters * (1-LENGTH_RAND)),
+                max_len=math.ceil(graph.G.order() / self.nclusters * (1+LENGTH_RAND)),
             )
-        
-            for step in range(10*graph.G.order()):
+            assignments = hippocluster.fit(graph)['assignments']
 
-                # get a batch of random walks
-
-                walks = [
-                    set(graph.unweighted_random_walk(
-                        length=random.randint(
-                            math.ceil(graph.G.order() / self.nclusters * (1-LENGTH_RAND)),
-                            math.ceil(graph.G.order() / self.nclusters * (1+LENGTH_RAND)))))
-
-                    for _ in range(self.nclusters*5 if step == 0 else self.nclusters)
-                ]
-
-                # update the clustering
-                hippocluster.update(walks)
-            assignments = hippocluster.get_assignments(graph)
-                
             print("inserting assignment at %d" % count)
             self.assignmentslist.insert(count,assignments)
      
