@@ -120,28 +120,6 @@ class AbstractedGraph:
             hippocluster.fit(graph)
             assignments = hippocluster.get_assignments(graph)
 
-
-            # instantiate Hippocluster object
-            # hippocluster = Hippocluster(
-            #     n_clusters=self.nclusters,
-            #     drop_threshold=0.001
-            # )
-            #
-            # for step in range(1000):
-            #
-            #     # get a batch of random walks
-            #
-            #     walks = [
-            #         set(graph.unweighted_random_walk(length=random.randint(int(self.nclusters/2) + 2, self.nclusters+2)))
-            #         for _ in range(self.nclusters*5 if step == 0 else self.nclusters)
-            #     ]
-            #
-            #     # update the clustering
-            #     hippocluster.update(walks)
-            #     assignments = hippocluster.get_assignments(graph)
-
-
-
             self.assignmentslist.insert(count, assignments)
      
             newG = nx.DiGraph()
