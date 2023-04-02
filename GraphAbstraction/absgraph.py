@@ -1,10 +1,13 @@
 from hippocluster.algorithms.hippocluster import Hippocluster
 from hippocluster.graphs.abstract import RandomWalkGraph
+from hippocluster.graphs.lfr import RandomWalkLFR
 import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 import random
+import math
 
+LENGTH_RAND = 0.25
 
 class AbstractedGraph:
 
@@ -64,41 +67,82 @@ class AbstractedGraph:
         else:
             pointsfinal = points
         return pointsfinal
-        
+
+    def tree_circle_pos(self, g: nx.DiGraph, root, depth=2):
+        pos = {root: (0, 0)}
+        angles = {root: 0}
+
+        node_levels = {0: [root]}
+        for level in range(1, depth + 1):
+            node_levels[level] = []
+            for node in node_levels[level - 1]:
+                node_levels[level].extend(list(g.successors(node)))
+
+        for level in range(depth, 0, -1):
+            radius = 1 / depth * level
+            for i in range(len(node_levels[level])):
+                node = node_levels[level][i]
+                successors = list(g.successors(node))
+                if len(successors) > 0:
+                    angles[node] = np.mean([angles[child] for child in successors])
+                else:
+                    angles[node] = 2 * math.pi / len(node_levels[level]) * i
+                pos[node] = (radius * math.cos(angles[node]), radius * math.sin(angles[node]))
+
+        return pos
+
     def __init__(self, graph, iterations):
     
-        self.colors = np.random.rand(100, 3)
-        
+        self.colors = np.random.rand(300, 3)
+
         num = iterations
         self.n_panels = 2
         self.graphs = []
         self.assignmentslist = []
-        self.nclusters = 16
+        self.nclusters = int(graph.G.order()/10)
         self.graphs.insert(0,graph)
+
         
 
         for count in range(num):
-            # instantiate Hippocluster object
+
             hippocluster = Hippocluster(
+                lr=0.05,
                 n_clusters=self.nclusters,
-                drop_threshold=0.001
+                batch_size=500,
+                max_len=int(math.ceil(graph.G.order() / self.nclusters * (1+LENGTH_RAND))),
+                min_len=int(math.ceil(graph.G.order() / self.nclusters * (1-LENGTH_RAND))),
+                n_walks=10*graph.G.order(),
+                drop_threshold=0.00001,
+                n_jobs=1
             )
-        
-            for step in range(1000):  # todo: it should be sufficient to show hippocluster 10*N walks
+            print(type(graph.G))
+            hippocluster.fit(graph)
+            assignments = hippocluster.get_assignments(graph)
 
-                # get a batch of random walks
 
-                walks = [
-                    set(graph.unweighted_random_walk(length=random.randint(int(self.nclusters/2) + 2, self.nclusters+2)))
-                    for _ in range(self.nclusters*5 if step == 0 else self.nclusters)
-                ]
+            # instantiate Hippocluster object
+            # hippocluster = Hippocluster(
+            #     n_clusters=self.nclusters,
+            #     drop_threshold=0.001
+            # )
+            #
+            # for step in range(1000):
+            #
+            #     # get a batch of random walks
+            #
+            #     walks = [
+            #         set(graph.unweighted_random_walk(length=random.randint(int(self.nclusters/2) + 2, self.nclusters+2)))
+            #         for _ in range(self.nclusters*5 if step == 0 else self.nclusters)
+            #     ]
+            #
+            #     # update the clustering
+            #     hippocluster.update(walks)
+            #     assignments = hippocluster.get_assignments(graph)
 
-                # update the clustering
-                hippocluster.update(walks)
-                assignments = hippocluster.get_assignments(graph)  # todo: it will save time to just do this once after the loop
-                
-            print("inserting assignment at %d" % count)
-            self.assignmentslist.insert(count,assignments)
+
+
+            self.assignmentslist.insert(count, assignments)
      
             newG = nx.DiGraph()
             for nodenum in set(assignments.values()):
@@ -107,30 +151,36 @@ class AbstractedGraph:
             for edge in graph.G.edges:
                 cluster1 = assignments.get(edge[0])
                 cluster2 = assignments.get(edge[1])
+
                 if(cluster1 != cluster2 or edge[0] == edge[1]):
-                    # todo: I'm not sure this logic is quite right wrt the new weights - I think the new weight should be either the sum or the max of the weights in the previous graph
                     if newG.has_edge(cluster1, cluster2):
                         test = newG[cluster1][cluster2]['weight']
                         newG[cluster1][cluster2]['weight'] = test + graph.G[edge[0]][edge[1]]['weight']
                     else:
-                        newG.add_edge(cluster1, cluster2, weight = 0)
-                        test = newG[cluster1][cluster2]['weight']
-                        newG[cluster1][cluster2]['weight'] = test + graph.G[edge[0]][edge[1]]['weight']
-            
-            print("inserting graph at %d" % count)
+                        if(cluster1 != None and cluster2 != None):
+                            newG.add_edge(cluster1, cluster2, weight = 0)
+                            test = newG[cluster1][cluster2]['weight']
+                            newG[cluster1][cluster2]['weight'] = test + graph.G[edge[0]][edge[1]]['weight']
+
             self.graphs.insert(count+1, newG)
             
             self.nclusters = int(len(set(assignments.values()))/2)
-            graph = RandomWalkGraph(newG)
+            graph = RandomWalkGraph(newG, walk_type='diffusion')
+
 
     def printgraphs(self, g1, g2):
+
+        import pydot
+        from networkx.drawing.nx_pydot import graphviz_layout
         plt.clf()
         
         plt.subplot(1, 2, 2)
-    
+
+        root = self.get_higher_abstraction_nodes((0, 0, 0, 0, 0, 0, 0, 0, 0), 0, g2)
+
         node_colors={node: self.colors[node][::-1] for node in self.graphs[g2].nodes}
 
-        pos = nx.spring_layout(self.graphs[g2])
+        pos = graphviz_layout(self.graphs[g2], prog="twopi")
         nx.draw(self.graphs[g2],
                 pos=pos,
                 with_labels=False,
@@ -151,13 +201,17 @@ class AbstractedGraph:
        
         
         plt.subplot(1, 2, 1)
-         
+
+
         if type(self.graphs[g1]) is RandomWalkGraph:
-            nx.draw(self.graphs[g1].G, with_labels=False,pos=nx.get_node_attributes(self.graphs[g1].G,'pos'),
+
+            nx.draw(self.graphs[g1].G, with_labels=False,
+            pos = graphviz_layout(self.graphs[g1].G, prog="twopi"),
             node_color=[testcolors.get(node, [0, 0, 0]) for node in self.graphs[g1].G],
             node_size=50)
         else:
             nx.draw(self.graphs[g1], with_labels=False,
+            pos=graphviz_layout(self.graphs[g1], prog="twopi"),
             node_color=[testcolors.get(node, [0, 0, 0]) for node in self.graphs[g1]],
             node_size=400)
         
